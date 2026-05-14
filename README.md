@@ -23,3 +23,8 @@ Além disso, o sistema permite identificar padrões no histórico do paciente, c
 O valor dessa funcionalidade se torna ainda mais evidente em contextos com alta rotatividade de profissionais, onde o acesso rápido e estruturado ao histórico do paciente é essencial para garantir a continuidade e a qualidade do atendimento.
 
 # Importante: O sistema não substitui o diagnóstico médico, atuando exclusivamente como ferramenta de apoio baseada em dados históricos.
+
+
+# Diagrama Modelo Relacional
+
+<img width="7061" height="5263" alt="Image" src="https://github.com/user-attachments/assets/4e8ad776-d77e-4c49-9aed-0155cd8c33be" />
