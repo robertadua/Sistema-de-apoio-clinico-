@@ -37,7 +37,6 @@ A modelagem do sistema foi construída com base no conceito de agregação, util
 Diferente do modelo relacional, que separa bastante as informações para evitar redundância, aqui a ideia foi justamente o contrário: agrupar os dados pensando em como o sistema vai ser usado na prática.
 No caso desse sistema, o principal uso acontece durante a consulta médica, quando o profissional precisa acessar rapidamente o histórico do paciente. Por isso, a modelagem foi pensada priorizando leitura rápida e acesso direto às informações mais relevantes.
 
----
 
 ## Agregação Principal
 
@@ -45,7 +44,6 @@ A agregação principal definida foi o paciente.
 Nesse contexto, o paciente atua como o aggregate root do sistema, sendo responsável por concentrar todas as informações relacionadas ao seu histórico clínico.
 Ele funciona como o ponto central do sistema, reunindo tanto os dados cadastrais quanto todo o histórico clínico. Essa escolha faz sentido porque, na prática, o fluxo sempre começa pelo paciente, e a partir dele o médico precisa entender todo o contexto.
 
----
 
 ## Consultas como Sub-agregação
 
@@ -53,7 +51,6 @@ Dentro do paciente, as consultas foram organizadas como uma sub-agregação.
 As consultas funcionam como uma sub-agregação dentro do paciente, representando os eventos clínicos que compõem o seu histórico.
 Cada consulta representa um momento específico de atendimento e reúne todas as informações relacionadas àquele evento. Isso permite acompanhar a evolução do paciente ao longo do tempo de forma mais natural e organizada.
 
----
 
 ## Informações dentro da Consulta
 
@@ -61,30 +58,25 @@ Dentro de cada consulta, foram agrupados os dados que só fazem sentido naquele 
 Sintomas
 Os sintomas representam o que o paciente relatou naquele momento. Eles foram colocados dentro da consulta porque não fazem sentido isoladamente, sem o contexto do atendimento.
 
----
 
 ## Diagnósticos
 Os diagnósticos seguem a mesma lógica. Eles estão diretamente ligados à análise feita naquela consulta, então faz mais sentido mantê-los junto desse registro.
 
----
 
 ## Prescrições
 
 As prescrições representam o que foi indicado como tratamento. Como dependem da consulta em que foram definidas, também foram incluídas dentro desse mesmo agrupamento.
 
----
 
 ## Exames
 
 Os exames armazenam tanto informações quanto resultados relacionados ao atendimento. Ao mantê-los dentro da consulta, fica mais fácil analisar o caso de forma completa, sem precisar buscar dados em diferentes lugares.
 
----
 
 ## Médico associado à consulta
 O médico foi relacionado à consulta para garantir que seja possível identificar quem realizou cada atendimento.
 Isso é importante tanto para organização quanto para possíveis análises futuras.
 
----
 
 ## Justificativa da Modelagem
 
