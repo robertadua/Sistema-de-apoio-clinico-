@@ -12,6 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
+
 st.title("CLINIO - Sistema de Apoio Clínico")
 
 st.sidebar.title("Menu")
