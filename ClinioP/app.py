@@ -1,8 +1,10 @@
 import streamlit as st
 import pandas as pd
+import json
 from datetime import date
 from bson.objectid import ObjectId
 from database import pacientes_collection, consultas_collection, diagnosticos_collection
+from redis_config import redis_client
 
 st.set_page_config(
     page_title="CLINIO",
@@ -44,13 +46,88 @@ def montar_opcoes_consultas():
 
     return opcoes
 
+def gerar_briefing_paciente(paciente_id):
+    paciente = pacientes_collection.find_one({"_id": ObjectId(paciente_id)})
+
+    consultas = list(
+        consultas_collection.find(
+            {"paciente_id": ObjectId(paciente_id)}
+        ).sort("data", -1)
+    )
+
+    historico = []
+
+    for consulta in consultas:
+        diagnostico = diagnosticos_collection.find_one(
+            {"consulta_id": consulta["_id"]}
+        )
+
+        historico.append({
+            "data": consulta["data"],
+            "horario": consulta["horario"],
+            "especialidade": consulta["especialidade"],
+            "medico": consulta["medico"],
+            "status": consulta["status"],
+            "valor": consulta["valor"],
+            "diagnostico": diagnostico["diagnostico"] if diagnostico else "Sem diagnóstico",
+            "sintomas": diagnostico["sintomas"] if diagnostico else "Sem sintomas",
+            "tratamento": diagnostico["tratamento"] if diagnostico else "Sem tratamento"
+        })
+
+    briefing = {
+        "paciente": {
+            "id": paciente_id,
+            "nome": paciente["nome"],
+            "cpf": paciente["cpf"],
+            "data_nascimento": paciente["data_nascimento"],
+            "sexo": paciente["sexo"],
+            "telefone": paciente["telefone"],
+            "email": paciente["email"]
+        },
+        "quantidade_consultas": len(consultas),
+        "historico": historico
+    }
+
+    return briefing
+
+
+def buscar_briefing_no_cache(paciente_id):
+    chave_cache = f"cache:briefing:{paciente_id}"
+    briefing_cache = redis_client.get(chave_cache)
+
+    if briefing_cache:
+        return json.loads(briefing_cache)
+
+    return None
+
+
+def salvar_briefing_no_cache(paciente_id, briefing):
+    chave_cache = f"cache:briefing:{paciente_id}"
+
+    redis_client.setex(
+        chave_cache,
+        300,
+        json.dumps(briefing, ensure_ascii=False)
+    )
+
+
+def registrar_acesso_paciente(paciente_id):
+    chave_contador = f"acessos:paciente:{paciente_id}"
+
+    redis_client.incr(chave_contador)
+    redis_client.pfadd("pacientes_unicos_dashboard", paciente_id)
+
+    total_acessos = redis_client.get(chave_contador)
+    pacientes_unicos = redis_client.pfcount("pacientes_unicos_dashboard")
+
+    return total_acessos, pacientes_unicos
 
 if pagina == "Dashboard":
     st.header("Dashboard - Briefing Clínico e Aggregation Pipelines")
 
-    aba_briefing, aba_pipeline_1, aba_pipeline_2, aba_sample = st.tabs(
-        ["Briefing Clínico", "Pipeline 1", "Pipeline 2", "Sample"]
-    )
+    aba_briefing, aba_pipeline_1, aba_pipeline_2, aba_sample, aba_redis = st.tabs(
+    ["Briefing Clínico", "Pipeline 1", "Pipeline 2", "Sample", "Redis"]
+)
 
     with aba_briefing:
         pacientes = list(pacientes_collection.find())
@@ -271,6 +348,50 @@ if pagina == "Dashboard":
         else:
             st.dataframe(pd.DataFrame(resultado_sample), use_container_width=True)
 
+    with aba_redis:
+        st.subheader("Redis - Cache, Contador e HyperLogLog")
+
+        pacientes = list(pacientes_collection.find())
+
+        if len(pacientes) == 0:
+            st.info("Cadastre pacientes antes de testar o Redis.")
+        else:
+            opcoes_pacientes = montar_opcoes_pacientes()
+
+            paciente_escolhido = st.selectbox(
+                "Escolha um paciente para testar o Redis",
+                list(opcoes_pacientes.keys()),
+                key="redis_paciente_select"
+            )
+
+            paciente_id = opcoes_pacientes[paciente_escolhido]
+
+            if st.button("Acessar briefing com Redis"):
+                total_acessos, pacientes_unicos = registrar_acesso_paciente(paciente_id)
+
+                briefing_cache = buscar_briefing_no_cache(paciente_id)
+
+                if briefing_cache:
+                    st.success("CACHE HIT: o briefing foi carregado do Redis.")
+                    briefing = briefing_cache
+                else:
+                    st.warning("CACHE MISS: o briefing não estava no Redis. Buscando no MongoDB...")
+                    briefing = gerar_briefing_paciente(paciente_id)
+                    salvar_briefing_no_cache(paciente_id, briefing)
+                    st.success("Briefing salvo no Redis por 5 minutos.")
+
+                st.write("### Dados salvos/consultados no Redis")
+
+                st.write(f"**Chave do cache:** `cache:briefing:{paciente_id}`")
+                st.write(f"**Chave do contador:** `acessos:paciente:{paciente_id}`")
+                st.write("**Chave do HyperLogLog:** `pacientes_unicos_dashboard`")
+
+                st.metric("Acessos ao briefing deste paciente", total_acessos)
+                st.metric("Pacientes únicos acessados no Dashboard", pacientes_unicos)
+
+                st.write("### Briefing clínico recuperado")
+
+                st.json(briefing)
 
 elif pagina == "Pacientes":
     st.header("Pacientes")
